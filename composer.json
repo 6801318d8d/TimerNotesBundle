@@ -1,0 +1,25 @@
+{
+    "name": "6801318d8d/timer-notes-bundle",
+    "description": "Add timestamped notes to the description of the running timer while it runs, from Kimai's toolbar",
+    "homepage": "https://github.com/6801318d8d/TimerNotesBundle",
+    "type": "kimai-plugin",
+    "version": "1.0.0",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "6801318d8d",
+            "homepage": "https://github.com/6801318d8d"
+        }
+    ],
+    "extra": {
+        "kimai": {
+            "require": 20000,
+            "name": "Timer notes"
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "KimaiPlugin\\TimerNotesBundle\\": ""
+        }
+    }
+}

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+  <file source-language="en" target-language="en" datatype="plaintext" original="messages.en.xlf">
+    <body>
+      <trans-unit id="timer_notes.add" resname="timer_notes.add">
+        <source>timer_notes.add</source>
+        <target>Add a note to the running timer</target>
+      </trans-unit>
+      <trans-unit id="timer_notes.since" resname="timer_notes.since">
+        <source>timer_notes.since</source>
+        <target>since %time%</target>
+      </trans-unit>
+      <trans-unit id="timer_notes.hint" resname="timer_notes.hint">
+        <source>timer_notes.hint</source>
+        <target>Enter: save · Shift+Enter: new line · Esc: close</target>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>
