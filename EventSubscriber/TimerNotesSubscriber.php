@@ -9,14 +9,15 @@ use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * Adds a "note" button next to the running timer in the toolbar. It opens a small box with the description of the
- * running timesheet and a new line that starts with the current time ("14:32 "): what is typed there is appended to
- * the description, and the timer keeps running. Enter saves, Shift+Enter starts another line, Esc closes. The time
- * alone, with nothing typed after it, is not saved.
+ * Adds two buttons next to the running timer in the toolbar:
+ * - "note" opens a small box with the description of the running timesheet and a new line that starts with the
+ *   current time ("14:32 "): what is typed there is appended to the description, and the timer keeps running. Enter
+ *   saves, Shift+Enter starts another line, Esc closes. The time alone, with nothing typed after it, is not saved;
+ * - "edit" opens Kimai's full edit dialog of the running timesheet (saved with an empty end, it keeps running).
  *
- * Kimai only lets the description be edited in the full edit dialog of the timesheet (the start dialog, or the row
- * in "My times"); the toolbar has the stop button only. The box saves through the API (PATCH of the description),
- * which reuses the session of the page, then triggers Kimai's "kimai.timesheetUpdate" so that lists reload.
+ * Kimai only lets a running timesheet be edited from its row in "My times"; the toolbar has the stop button only.
+ * The box saves through the API (PATCH of the description), which reuses the session of the page, then triggers
+ * Kimai's "kimai.timesheetUpdate" so that lists reload; the dialog is opened with Kimai's own modal plugin.
  */
 final class TimerNotesSubscriber implements EventSubscriberInterface
 {
@@ -38,11 +39,12 @@ final class TimerNotesSubscriber implements EventSubscriberInterface
             if (menus.length === 0) {
                 return;
             }
-            let api, alerts, events;
+            let api, alerts, events, modal;
             try {
                 api = event.detail.kimai.getPlugin('api');
                 alerts = event.detail.kimai.getPlugin('alert');
                 events = event.detail.kimai.getPlugin('event');
+                modal = event.detail.kimai.getPlugin('modal');
             } catch (error) {
                 console.warn('TimerNotesBundle disabled:', error);
                 return;
@@ -50,20 +52,40 @@ final class TimerNotesSubscriber implements EventSubscriberInterface
             const pad = (value) => String(value).padStart(2, '0');
             const clock = (date) => pad(date.getHours()) + ':' + pad(date.getMinutes());
 
-            // inside the menu of the stop button, so Kimai shows and hides it together with the running timer
-            const buttons = [];
-            for (const menu of menus) {
+            // Kimai's own icons for "comment" and "edit" (config/packages/tabler.yaml)
+            function addButton(menu, className, icon, label) {
                 const button = document.createElement('a');
                 button.href = '#';
-                button.className = 'btn btn-default btn-icon px-sm-2 tn-button';
-                button.title = labels.add;
-                button.setAttribute('aria-label', labels.add);
-                button.setAttribute('aria-expanded', 'false');
-                button.innerHTML = '<i class="fas fa-pen"></i>';
+                button.className = 'btn btn-default btn-icon px-sm-2 tn-button ' + className;
+                button.title = label;
+                button.setAttribute('aria-label', label);
+                button.innerHTML = '<i class="' + icon + '"></i>';
                 menu.appendChild(button);
+
+                return button;
+            }
+
+            // inside the menu of the stop button, so Kimai shows and hides them together with the running timer
+            const buttons = [];
+            const editButtons = [];
+            for (const menu of menus) {
+                const button = addButton(menu, 'tn-note', 'far fa-comment', labels.add);
+                button.setAttribute('aria-expanded', 'false');
                 buttons.push(button);
+                editButtons.push(addButton(menu, 'tn-edit', 'far fa-edit', labels.edit));
             }
             let anchor = buttons[0];
+
+            // the running entry, or nothing (then Kimai is told to hide the timer, which was stopped elsewhere)
+            function withActiveEntry(callback) {
+                api.get(config.active, {}, function (entries) {
+                    if (entries.length === 0) {
+                        events.trigger('kimai.timesheetUpdate');
+                        return;
+                    }
+                    callback(entries[0]);
+                });
+            }
 
             const panel = document.createElement('div');
             panel.className = 'card shadow tn-panel';
@@ -108,13 +130,8 @@ final class TimerNotesSubscriber implements EventSubscriberInterface
             }
 
             function open() {
-                api.get(config.active, {}, function (entries) {
-                    if (entries.length === 0) {
-                        // stopped elsewhere: let Kimai hide the timer
-                        events.trigger('kimai.timesheetUpdate');
-                        return;
-                    }
-                    entry = entries[0];
+                withActiveEntry(function (active) {
+                    entry = active;
                     const project = entry.project || {};
                     let text = [(project.customer || {}).name, project.name].filter(Boolean).join(' › ');
                     if (entry.activity && entry.activity.name) {
@@ -210,6 +227,20 @@ final class TimerNotesSubscriber implements EventSubscriberInterface
                     close();
                 }
             });
+            // Kimai's full edit dialog of the running entry; saved with an empty end, the timer keeps running
+            for (const button of editButtons) {
+                button.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    if (isChanged()) {
+                        textarea.focus();
+                        return;
+                    }
+                    close();
+                    withActiveEntry(function (active) {
+                        modal.openUrlInModal(config.edit.replace('000', active.id));
+                    });
+                });
+            }
             saveButton.addEventListener('click', save);
             for (const element of panel.querySelectorAll('.tn-close')) {
                 element.addEventListener('click', close);
@@ -266,8 +297,10 @@ final class TimerNotesSubscriber implements EventSubscriberInterface
             'active' => $this->router->generate('active_timesheet'),
             // like Kimai's own stop URL in the toolbar: "000" is replaced by the id of the running timesheet
             'patch' => $this->router->generate('patch_timesheet', ['id' => '000']),
+            'edit' => $this->router->generate('timesheet_edit', ['id' => '000']),
             'labels' => [
                 'add' => $this->translator->trans('timer_notes.add'),
+                'edit' => $this->translator->trans('timer_notes.edit'),
                 'since' => $this->translator->trans('timer_notes.since'),
                 'hint' => $this->translator->trans('timer_notes.hint'),
                 'save' => $this->translator->trans('action.save'),

@@ -6,6 +6,10 @@
         <source>timer_notes.add</source>
         <target>Aggiungi una nota al timer in corso</target>
       </trans-unit>
+      <trans-unit id="timer_notes.edit" resname="timer_notes.edit">
+        <source>timer_notes.edit</source>
+        <target>Modifica il timer in corso</target>
+      </trans-unit>
       <trans-unit id="timer_notes.since" resname="timer_notes.since">
         <source>timer_notes.since</source>
         <target>dalle %time%</target>
